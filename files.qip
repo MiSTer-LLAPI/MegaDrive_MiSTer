@@ -22,3 +22,4 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/md_io.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cartridge.sv
 set_global_assignment -name SDC_FILE MegaDrive.sdc
 set_global_assignment -name SYSTEMVERILOG_FILE MegaDrive.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/llapi.sv
