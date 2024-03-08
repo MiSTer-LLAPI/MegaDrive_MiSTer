@@ -224,12 +224,13 @@ localparam CONF_STR = {
 	"O[9:8],Auto Region,Header,File Ext,Disabled;",
 	"D2O[28:27],Priority,US>EU>JP,EU>US>JP,US>JP>EU,JP>US>EU;",
 	"d7O[12],TMSS,Disabled,Enabled;",
-	//LLAPI: OSD menu item. swapped NONE with LLAPI. To detect LLAPI, status[63] = 0.
-	//LLAPI: Always double check witht the bits map allocation table to avoid conflicts	
 	"-;",
-	"O[63],LLAPI on USER I/O port,ON,OFF;",
-	//LLAPI
+	//LLAPI: OSD menu item
+	//LLAPI Always ON
+	"-,<< LLAPI enabled >>;",
+	"-,<< Use USER I/O port >>;",
 	"-;",
+	//END LLAPI	
 	"C,Cheats;",
 	"H1O[24],Cheats Enabled,Yes,No;",
 	"-;",
@@ -1198,7 +1199,7 @@ wire [71:0] llapi_analog, llapi_analog2;
 wire [7:0]  llapi_type, llapi_type2;
 wire llapi_en, llapi_en2;
 
-wire llapi_select = ~status[63];
+wire llapi_select = 1'b1;
 
 wire llapi_latch_o, llapi_latch_o2, llapi_data_o, llapi_data_o2;
 
