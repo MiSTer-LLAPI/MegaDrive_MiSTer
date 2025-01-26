@@ -217,6 +217,12 @@ video_freak video_freak
 `include "build_id.v"
 localparam CONF_STR = {
 	"MegaDrive;UART31250,MIDI;",
+	//LLAPI: OSD menu item
+	//LLAPI Always ON
+	"-,>> LLAPI enabled core    <<;",
+	"-,>> Connect USER I/O port <<;",
+	"-;",
+	//END LLAPI	
 	"FS1,BINGENMD ;",
 	"FS2,SMS;",
 	"-;",
@@ -225,12 +231,6 @@ localparam CONF_STR = {
 	"D2O[28:27],Priority,US>EU>JP,EU>US>JP,US>JP>EU,JP>US>EU;",
 	"d7O[12],TMSS,Disabled,Enabled;",
 	"-;",
-	//LLAPI: OSD menu item
-	//LLAPI Always ON
-	"-,<< LLAPI enabled >>;",
-	"-,<< Use USER I/O port >>;",
-	"-;",
-	//END LLAPI	
 	"C,Cheats;",
 	"H1O[24],Cheats Enabled,Yes,No;",
 	"-;",
@@ -1198,10 +1198,13 @@ wire [31:0] llapi_buttons, llapi_buttons2;
 wire [71:0] llapi_analog, llapi_analog2;
 wire [7:0]  llapi_type, llapi_type2;
 wire llapi_en, llapi_en2;
-
-wire llapi_select = 1'b1;
-
 wire llapi_latch_o, llapi_latch_o2, llapi_data_o, llapi_data_o2;
+wire [11:0] joy_ll_a;
+wire [11:0] joy_ll_b;
+wire [11:0] joy_0, joy_1, joy_2, joy_3, joy_4;
+
+//Assign (DOWN + START + FIRST BUTTON) Combinaison to bring the OSD up - P1 and P2 ports.
+wire llapi_osd = (llapi_buttons[26] & llapi_buttons[5] & llapi_buttons[0]) || (llapi_buttons2[26] & llapi_buttons2[5] & llapi_buttons2[0]);
 
 // LLAPI Indexes:
 // 0 = D+    = P1 Latch
@@ -1211,18 +1214,14 @@ wire llapi_latch_o, llapi_latch_o2, llapi_data_o, llapi_data_o2;
 // 4 = RX+   = P2 Latch
 // 5 = RX-   = P2 Data
 
-
 always_comb begin
-	USER_OUT= 6'b111111;
-	if (llapi_select) begin
+		//USER_OUT= 6'b111111;
 		USER_OUT[0] = llapi_latch_o;
 		USER_OUT[1] = llapi_data_o;
-		USER_OUT[2] = ~(llapi_select & ~OSD_STATUS); // LED for Blister
+		USER_OUT[2] = OSD_STATUS; // Blister LED
 		USER_OUT[4] = llapi_latch_o2;
 		USER_OUT[5] = llapi_data_o2;
-	end
 end
-
 
 //Port 1 conf
 LLAPI llapi
@@ -1233,7 +1232,7 @@ LLAPI llapi
 	.IO_LATCH_OUT(llapi_latch_o),
 	.IO_DATA_IN(USER_IN[1]),
 	.IO_DATA_OUT(llapi_data_o),
-	.ENABLE(llapi_select & ~OSD_STATUS),
+	.ENABLE(~OSD_STATUS), // Disable LLAPI mode when Core OSD is open
 	.LLAPI_BUTTONS(llapi_buttons),
 	.LLAPI_ANALOG(llapi_analog),
 	.LLAPI_TYPE(llapi_type),
@@ -1249,17 +1248,23 @@ LLAPI llapi2
 	.IO_LATCH_OUT(llapi_latch_o2),
 	.IO_DATA_IN(USER_IN[5]),
 	.IO_DATA_OUT(llapi_data_o2),
-	.ENABLE(llapi_select & ~OSD_STATUS),
+	.ENABLE(~OSD_STATUS), // Disable LLAPI mode when Core OSD is open
 	.LLAPI_BUTTONS(llapi_buttons2),
 	.LLAPI_ANALOG(llapi_analog2),
 	.LLAPI_TYPE(llapi_type2),
 	.LLAPI_EN(llapi_en2)
 );
 
+// controller id is 0 if there is either an Atari controller or no controller
+// if id is 0, assume there is no controller until a button is pressed
+// also check for 255 ('Searching mode') and treat that as 'no controller' as well
+wire use_llapi  = llapi_en && ((|llapi_type  && ~(&llapi_type))  || llapi_button_pressed);
+wire use_llapi2 = llapi_en2 && ((|llapi_type2 && ~(&llapi_type2)) || llapi_button_pressed2);
+
 reg llapi_button_pressed, llapi_button_pressed2;
 
 always @(posedge CLK_50M) begin
-        if (reset) begin
+    if (reset) begin
                 llapi_button_pressed  <= 0;
                 llapi_button_pressed2 <= 0;
 	end else begin
@@ -1270,27 +1275,11 @@ always @(posedge CLK_50M) begin
 	end
 end
 
-// controller id is 0 if there is either an Atari controller or no controller
-// if id is 0, assume there is no controller until a button is pressed
-// also check for 255 and treat that as 'no controller' as well
-wire use_llapi  = llapi_en  && llapi_select && ((|llapi_type  && ~(&llapi_type))  || llapi_button_pressed);
-wire use_llapi2 = llapi_en2 && llapi_select && ((|llapi_type2 && ~(&llapi_type2)) || llapi_button_pressed2);
-
-// Indexes:
-// 0 = D+    = P1 Latch
-// 1 = D-    = P1 Data
-// 2 = TX-   = LLAPI Enable
-// 3 = GND_d = N/C
-// 4 = RX+   = P2 Latch
-// 5 = RX-   = P2 Data
-
 //Controller string provided by core for reference (order is important)
 //Controller specific mapping based on type. More info here : https://docs.google.com/document/d/12XpxrmKYx_jgfEPyw-O2zex1kTQZZ-NSBdLO2RQPRzM/edit
 //llapi_Buttons id are HID id - 1
 
 //Port 1 mapping
-
-wire [11:0] joy_ll_a;
 always_comb begin
 	// button layout for 6 button controllers
 	if (llapi_type == 20 || llapi_type == 21 || llapi_type == 8 || llapi_type == 3 || llapi_type == 11) begin
@@ -1318,7 +1307,7 @@ always_comb begin
 	end
 end
 
-wire [11:0] joy_ll_b;
+//Port 2 mapping
 always_comb begin
 	// button layout for 6 button controllers
 	if (llapi_type2 == 20 || llapi_type2 == 21 || llapi_type2 == 8 || llapi_type2 == 3 || llapi_type2 == 11) begin
@@ -1346,35 +1335,22 @@ always_comb begin
 	end
 end
 
-//Assign (DOWN + START + FIRST BUTTON) Combinaison to bring the OSD up - P1 and P2 ports.
-wire llapi_osd = (llapi_buttons[26] & llapi_buttons[5] & llapi_buttons[0]) || (llapi_buttons2[26] & llapi_buttons2[5] & llapi_buttons2[0]);
-
-// if LLAPI is enabled, shift USB controllers over to the next available player slot
-wire [11:0] joy_0, joy_1, joy_2, joy_3, joy_4;
+// Player / LLAPI port allocation
 always_comb begin
-         if (use_llapi & use_llapi2) begin
+        if (~use_llapi & use_llapi2) begin
+               	joy_0 = joy_ll_b;
+                joy_1 = joy_usb_0;
+                joy_2 = joy_usb_1;
+                joy_3 = joy_usb_2;
+                joy_4 = joy_usb_3;
+        end else begin
                 joy_0 = joy_ll_a;
                 joy_1 = joy_ll_b;
                 joy_2 = joy_usb_0;
                 joy_3 = joy_usb_1;
                 joy_4 = joy_usb_2;
-        end else if (use_llapi ^ use_llapi2) begin
-                joy_0 = use_llapi  ? joy_ll_a : joy_usb_0;
-                joy_1 = use_llapi2 ? joy_ll_b : joy_usb_0;
-                joy_2 = joy_usb_1;
-                joy_3 = joy_usb_2;
-                joy_4 = joy_usb_3;
-        end else begin
-                joy_0 = joy_usb_0;
-                joy_1 = joy_usb_1;
-                joy_2 = joy_usb_2;
-                joy_3 = joy_usb_3;
-                joy_4 = joy_usb_4;
-        end
+		end
 end
-
-//////////////////  END LLAPI   ///////////////////
-
 
 /////////////////////////  BRAM SAVE/LOAD  /////////////////////////////
 
