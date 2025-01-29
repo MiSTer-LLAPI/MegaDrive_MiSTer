@@ -1159,7 +1159,7 @@ lightgun lightgun
 	.BTN_START(lg_start)
 );
 
-//LLAPI : disable SNAC entirely
+//LLAPI : disabling SNAC
 /*wire [6:0] SNAC_IN;
 wire [6:0] SNAC_OUT;
 always_comb begin
@@ -1215,7 +1215,6 @@ wire llapi_osd = (llapi_buttons[26] & llapi_buttons[5] & llapi_buttons[0]) || (l
 // 5 = RX-   = P2 Data
 
 always_comb begin
-		//USER_OUT= 6'b111111;
 		USER_OUT[0] = llapi_latch_o;
 		USER_OUT[1] = llapi_data_o;
 		USER_OUT[2] = OSD_STATUS; // Blister LED
@@ -1256,24 +1255,10 @@ LLAPI llapi2
 );
 
 // controller id is 0 if there is either an Atari controller or no controller
-// if id is 0, assume there is no controller until a button is pressed
+// if id is 0, assume there is no controller
 // also check for 255 ('Searching mode') and treat that as 'no controller' as well
-wire use_llapi  = llapi_en && ((|llapi_type  && ~(&llapi_type))  || llapi_button_pressed);
-wire use_llapi2 = llapi_en2 && ((|llapi_type2 && ~(&llapi_type2)) || llapi_button_pressed2);
-
-reg llapi_button_pressed, llapi_button_pressed2;
-
-always @(posedge CLK_50M) begin
-    if (reset) begin
-                llapi_button_pressed  <= 0;
-                llapi_button_pressed2 <= 0;
-	end else begin
-	       	if (|llapi_buttons)
-                	llapi_button_pressed  <= 1;
-        	if (|llapi_buttons2)
-                	llapi_button_pressed2 <= 1;
-	end
-end
+wire use_llapi  = llapi_en && ((|llapi_type  && ~(&llapi_type))); //  || llapi_button_pressed);
+wire use_llapi2 = llapi_en2 && ((|llapi_type2 && ~(&llapi_type2))); // || llapi_button_pressed2);
 
 //Controller string provided by core for reference (order is important)
 //Controller specific mapping based on type. More info here : https://docs.google.com/document/d/12XpxrmKYx_jgfEPyw-O2zex1kTQZZ-NSBdLO2RQPRzM/edit
@@ -1337,7 +1322,7 @@ end
 
 // Player / LLAPI port allocation
 always_comb begin
-        if (~use_llapi & use_llapi2) begin
+        if (~use_llapi & use_llapi2)  begin
                	joy_0 = joy_ll_b;
                 joy_1 = joy_usb_0;
                 joy_2 = joy_usb_1;
