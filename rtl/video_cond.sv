@@ -76,22 +76,40 @@ wire hs_end   = ~hs_d & hs_in;
 reg        hs_clean;
 reg [12:0] hcnt;
 always @(posedge clk) begin
-	reg [12:0] hs_width;
-
 	hcnt <= hcnt + 1'd1;
 
+	// Filter double HSync pulses around VSync
 	if(hs_begin & (hcnt[12] | vde_nobrd)) begin
 		hcnt <= 0;
 		hs_clean <= 0;
 	end
-	if(hs_end & vde_nobrd) hs_width <= hcnt;
-	if(hcnt == hs_width) hs_clean <= 1;
+
+	// 4.7us pulse
+	if(hcnt == 504) hs_clean <= 1;
 end
 
+// The pixel clock changes during HSync in 320 mode. This can cause issues with some DirectVideo DACs.
+// Generate stable ce_pix during HSync to avoid the issue.
 always @(posedge clk) begin
-	reg vdp_hclk1_d;
+	reg vdp_hclk1_d, hclk1_ce, ce_pix_gen;
+	reg [4:0] hclk_cycle_cnt, hclk_cycle_size;
+
 	vdp_hclk1_d <= vdp_hclk1;
-	ce_pix <= ~vdp_hclk1_d & vdp_hclk1;
+	hclk1_ce <= ~vdp_hclk1_d & vdp_hclk1;
+
+	hclk_cycle_cnt <= hclk_cycle_cnt + 1'b1;
+	if (vdp_de_h & hs_in) begin
+		if (~vdp_hclk1_d & vdp_hclk1) begin
+			hclk_cycle_cnt <= 0;
+			hclk_cycle_size <= hclk_cycle_cnt;
+		end
+	end else if (hclk_cycle_cnt == hclk_cycle_size) begin
+		hclk_cycle_cnt <= 0;
+	end
+
+	ce_pix_gen <= (hclk_cycle_cnt == hclk_cycle_size);
+
+	ce_pix <= ~hs_in ? ce_pix_gen : hclk1_ce;
 end
 
 reg vde_brd, vde_nobrd;
